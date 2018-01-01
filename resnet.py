@@ -1,9 +1,10 @@
+#Using Residual Neural Networks to identify MNIST dataset
 import tensorflow as tf
 import numpy as np
 
 batch_size = 128
 training_rate = 1e-2
-batches = 5000
+steps = 5000
 path = "./graphs/resnet"
 l2_loss_scale = 0.01
 
@@ -63,6 +64,7 @@ input, label = iterator.get_next()
 x = tf.placeholder_with_default(input, shape=[None, 784], name="x")
 y = tf.placeholder_with_default(label, shape=[None, 1], name="y")
 
+#one-hot encoding
 y_onehot = tf.one_hot(label, depth=10)
 y_onehot = tf.reshape(y_onehot, shape=[-1, 10])
 
@@ -102,13 +104,14 @@ with tf.name_scope("output_layer"):
     out_biases = tf.Variable(tf.zeros(shape=[10]), tf.float32)
     output = tf.matmul(avg_pool, out_weights) + out_biases
 
-#regularization
+#l2 regularization
 l2_loss = tf.losses.get_regularization_loss() + tf.nn.l2_loss(out_weights) * l2_loss_scale + tf.nn.l2_loss(out_biases) * l2_loss_scale
 loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=output, labels=y_onehot))
 loss += l2_loss
 
+#decaying learning rate, decay by 0.9 every 1000 steps
 global_step = tf.Variable(0, trainable=False)
-learning_rate = tf.train.exponential_decay(training_rate, global_step, 500, 0.9, staircase=True)
+learning_rate = tf.train.exponential_decay(training_rate, global_step, 1000, 0.9, staircase=True)
 train = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss, global_step=global_step)
 
 correct_prediction = tf.equal(tf.argmax(y_onehot, axis=1), tf.argmax(output, axis=1))
@@ -127,7 +130,7 @@ with tf.Session() as sess:
 
     train_writer = tf.summary.FileWriter(path, sess.graph)
 
-    for i in range(batches):
+    for i in range(steps):
         try:
             acc, cost, _, summary = sess.run([accuracy, loss, train, merged], feed_dict={handle: training_handle})
             print("Mini-batch:", i, ", Accuracy:", acc, " Loss:", cost)
